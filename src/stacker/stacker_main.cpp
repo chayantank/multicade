@@ -1,0 +1,155 @@
+#include "stacker_main.h"
+#include "stacker_display.h"
+#include "stacker_input.h"
+#include <Arduino.h>
+
+#define BUZZER_PIN 14
+
+namespace Stacker {
+
+struct Block {
+    float x;
+    int w;
+};
+
+const int MAX_BLOCKS = 20; // Max height to win
+Block blocks[MAX_BLOCKS];
+int currentBlock = 0;
+
+float moveX = 0;
+float moveSpeed = 40.0f;
+int moveDir = 1;
+
+int score = 0;
+bool gameOver = false;
+bool win = false;
+
+void resetGame() {
+    currentBlock = 0;
+    blocks[0].x = 44;
+    blocks[0].w = 40;
+    moveX = 44;
+    moveSpeed = 40.0f;
+    moveDir = 1;
+    score = 0;
+    gameOver = false;
+    win = false;
+}
+
+void setup() {
+    display_setup();
+    input_setup();
+    resetGame();
+}
+
+unsigned long lastTime = 0;
+
+void loop() {
+    unsigned long now = millis();
+    float dt = (now - lastTime) / 1000.0f;
+    lastTime = now;
+    if (dt > 0.1f) dt = 0.1f;
+    
+    if (gameOver || win) {
+        display_clear();
+        drawText(30, 20, win ? "YOU WIN!" : "GAME OVER");
+        drawText(30, 30, "SCORE:");
+        drawText(70, 30, score);
+        drawText(15, 50, "PRESS TO RESTART");
+        display_render();
+        if (input_action()) {
+            tone(BUZZER_PIN, 800, 100); delay(200);
+            resetGame();
+        }
+        return;
+    }
+    
+    // Moving current block
+    moveX += moveSpeed * moveDir * dt;
+    if (moveX <= 0) {
+        moveX = 0;
+        moveDir = 1;
+        tone(BUZZER_PIN, 200, 20);
+    }
+    if (moveX + blocks[currentBlock].w >= 128) {
+        moveX = 128 - blocks[currentBlock].w;
+        moveDir = -1;
+        tone(BUZZER_PIN, 200, 20);
+    }
+    
+    if (input_action()) {
+        blocks[currentBlock].x = moveX;
+        
+        if (currentBlock > 0) {
+            float prevX = blocks[currentBlock-1].x;
+            float prevW = blocks[currentBlock-1].w;
+            float curX = blocks[currentBlock].x;
+            float curW = blocks[currentBlock].w;
+            
+            // Check overlap
+            if (curX + curW < prevX || curX > prevX + prevW) {
+                // Missed completely
+                gameOver = true;
+                tone(BUZZER_PIN, 100, 500);
+            } else {
+                // Overlapped partially
+                float newX = max(curX, prevX);
+                float newW = min(curX + curW, prevX + prevW) - newX;
+                
+                blocks[currentBlock].x = newX;
+                blocks[currentBlock].w = newW;
+                
+                score += currentBlock * 10;
+                
+                if (currentBlock >= MAX_BLOCKS - 1) {
+                    win = true;
+                    tone(BUZZER_PIN, 1000, 200); delay(200); tone(BUZZER_PIN, 1500, 400);
+                } else {
+                    currentBlock++;
+                    blocks[currentBlock].w = newW;
+                    moveSpeed += 10.0f;
+                    moveX = 0;
+                    moveDir = 1;
+                    tone(BUZZER_PIN, 800, 50);
+                }
+            }
+        } else {
+            // First drop always successful
+            currentBlock++;
+            blocks[currentBlock].w = blocks[0].w;
+            moveSpeed += 10.0f;
+            moveX = 0;
+            moveDir = 1;
+            score += 10;
+            tone(BUZZER_PIN, 800, 50);
+        }
+    }
+    
+    // Render
+    display_clear();
+    
+    // Camera pan if high up
+    int cameraY = 0;
+    if (currentBlock > 5) {
+        cameraY = (currentBlock - 5) * 6;
+    }
+    
+    for(int i=0; i<currentBlock; i++) {
+        int y = 58 - i*6 + cameraY;
+        if (y > -10 && y < 64) {
+            drawRect((int)blocks[i].x, y, blocks[i].w, 6, 1);
+            fillRect((int)blocks[i].x+1, y+1, blocks[i].w-2, 4, 1);
+        }
+    }
+    
+    // Draw moving block
+    int y = 58 - currentBlock*6 + cameraY;
+    drawRect((int)moveX, y, blocks[currentBlock].w, 6, 1);
+    
+    // UI
+    drawText(2, 2, score);
+    
+    display_render();
+}
+
+}
