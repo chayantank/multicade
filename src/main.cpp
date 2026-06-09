@@ -314,16 +314,24 @@ void loop() {
     } else {
         // Global exit hook: Hold SW for 3s to return to menu
         static uint32_t global_hold_start = 0;
-        static bool global_last_sw = HIGH;
+        static uint32_t global_high_start = 0;
         bool sw_state = digitalRead(JOY_SW);
+        
         if (sw_state == LOW) {
-            if (global_last_sw == HIGH) global_hold_start = millis();
-            else if (millis() - global_hold_start >= 3000) {
+            if (global_hold_start == 0) {
+                global_hold_start = millis();
+            } else if (millis() - global_hold_start >= 3000) {
                 active_game = 0;
                 ESP.restart();
             }
+            global_high_start = 0;
+        } else {
+            if (global_high_start == 0) {
+                global_high_start = millis();
+            } else if (millis() - global_high_start >= 50) {
+                global_hold_start = 0;
+            }
         }
-        global_last_sw = sw_state;
 
         switch(active_game) {
             case 1: Doom::loop(); break;
