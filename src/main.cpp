@@ -26,7 +26,7 @@
 #include "lemmings/lemmings_main.h"
 #include "slingshot/slingshot_main.h"
 #include "gravity/gravity_main.h"
-#include "towerdef/towerdef_main.h"
+#include "chess/chess_main.h"
 #include "bounce/bounce_main.h"
 #include "stealth/stealth_main.h"
 #include "qix/qix_main.h"
@@ -103,7 +103,7 @@ const char* menuItems[TOTAL_GAMES] = {
     "33. Rhythm Hero", "34. Pocket Pet", "35. Pixel Golf", "36. Suika Drop",
     "37. Missile Cmd", "38. Q*bert", "39. Stacker", "40. 2048",
     "41. Fruit Slice", "42. Pinball", "43. Lemmings", "44. Slingshot",
-    "45. Gravity Flip", "46. Tower Def", "47. Bounce Classic", "48. Stealth",
+    "45. Gravity Flip", "46. Minimax Chess", "47. Bounce Classic", "48. Stealth",
     "49. Qix Capture", "50. Fishing"
 };
 
@@ -299,7 +299,7 @@ void setup() {
             case 43: Lemmings::setup(); break;
             case 44: Slingshot::setup(); break;
             case 45: Gravity::setup(); break;
-            case 46: Towerdef::setup(); break;
+            case 46: Chess::setup(); break;
             case 47: Bounce::setup(); break;
             case 48: Stealth::setup(); break;
             case 49: Qix::setup(); break;
@@ -379,7 +379,7 @@ void loop() {
             case 43: Lemmings::loop(); break;
             case 44: Slingshot::loop(); break;
             case 45: Gravity::loop(); break;
-            case 46: Towerdef::loop(); break;
+            case 46: Chess::loop(); break;
             case 47: Bounce::loop(); break;
             case 48: Stealth::loop(); break;
             case 49: Qix::loop(); break;
