@@ -39,4 +39,12 @@ void drawText(int x, int y, int num) {
     menuDisplay.print(num);
 }
 
+void drawPixel(int x, int y, int color) {
+    menuDisplay.drawPixel(x, y, color == 1 ? WHITE : BLACK);
+}
+
+void drawCircle(int x0, int y0, int r, int color) {
+    menuDisplay.drawCircle(x0, y0, r, color == 1 ? WHITE : BLACK);
+}
+
 }

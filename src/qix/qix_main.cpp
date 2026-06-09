@@ -25,6 +25,13 @@ struct Spark {
 };
 Spark spark;
 
+struct Sparx {
+    int x, y;
+    int moveDelay;
+    bool active;
+};
+Sparx sparx1, sparx2;
+
 int score = 0;
 bool gameOver = false;
 bool levelClear = false;
@@ -40,6 +47,8 @@ void resetLevel() {
     px = 0; py = 0;
     drawing = false;
     spark = {15, 7, 0.5f, 0.5f};
+    sparx1 = {0, 0, 0, true};
+    sparx2 = {29, 13, 0, true};
     gameOver = false;
     levelClear = false;
 }
@@ -103,6 +112,40 @@ void captureArea() {
     }
 }
 
+void updateSparx(Sparx& s) {
+    if(!s.active) return;
+    s.moveDelay--;
+    if (s.moveDelay <= 0) {
+        s.moveDelay = 2;
+        int neighbors[4][2] = {{1,0}, {-1,0}, {0,1}, {0,-1}};
+        int validCount = 0;
+        int validIdx[4];
+        for(int i=0; i<4; i++) {
+            int nx = s.x + neighbors[i][0];
+            int ny = s.y + neighbors[i][1];
+            if (nx>=0 && nx<GRID_W && ny>=0 && ny<GRID_H && grid[nx][ny] == 1) {
+                validIdx[validCount++] = i;
+            }
+        }
+        if (validCount > 0) {
+            int pick = validIdx[random(0, validCount)];
+            s.x += neighbors[pick][0];
+            s.y += neighbors[pick][1];
+        }
+        
+        if (s.x == (int)px && s.y == (int)py) {
+            lives--;
+            tone(BUZZER_PIN, 100, 500);
+            if (lives <= 0) gameOver = true;
+            else {
+                for(int x=0; x<GRID_W; x++) for(int y=0; y<GRID_H; y++) if (grid[x][y] == 3) grid[x][y] = 0;
+                drawing = false;
+                px = 0; py = 0;
+            }
+        }
+    }
+}
+
 unsigned long lastTime = 0;
 
 void loop() {
@@ -127,9 +170,7 @@ void loop() {
         display_clear();
         drawText(30, 20, "STAGE CLEAR");
         display_render();
-        if (input_action() && now % 500 < 50) {
-            resetLevel();
-        }
+        if (input_action() && now % 500 < 50) resetLevel();
         return;
     }
     
@@ -172,25 +213,38 @@ void loop() {
         }
     }
     
-    spark.x += spark.vx * dt * 15.0f;
-    spark.y += spark.vy * dt * 15.0f;
+    float tVx = spark.vx;
+    float tVy = spark.vy;
+    if (drawing) {
+        float dx = px - spark.x;
+        float dy = py - spark.y;
+        float len = sqrt(dx*dx + dy*dy);
+        if(len > 0) {
+            tVx += (dx/len) * 0.3f;
+            tVy += (dy/len) * 0.3f;
+        }
+    }
+    
+    spark.x += tVx * dt * 15.0f;
+    spark.y += tVy * dt * 15.0f;
+    spark.vx = tVx; spark.vy = tVy;
     
     int sx = (int)spark.x;
     int sy = (int)spark.y;
     if (sx < 0 || sx >= GRID_W || sy < 0 || sy >= GRID_H || grid[sx][sy] == 1) {
         spark.vx = -spark.vx;
         spark.x += spark.vx * 2;
-        spark.vy += ((random(0,100)-50)/100.0f) * 0.1f;
+        spark.vy += ((random(0,100)-50)/100.0f) * 0.2f;
     }
     if (sy < 0 || sy >= GRID_H || grid[sx][sy] == 1) {
         spark.vy = -spark.vy;
         spark.y += spark.vy * 2;
-        spark.vx += ((random(0,100)-50)/100.0f) * 0.1f;
+        spark.vx += ((random(0,100)-50)/100.0f) * 0.2f;
     }
     
     float len = sqrt(spark.vx*spark.vx + spark.vy*spark.vy);
-    spark.vx = (spark.vx/len) * 0.5f;
-    spark.vy = (spark.vy/len) * 0.5f;
+    spark.vx = (spark.vx/len) * 0.8f;
+    spark.vy = (spark.vy/len) * 0.8f;
     
     if (sx >= 0 && sx < GRID_W && sy >= 0 && sy < GRID_H && grid[sx][sy] == 3) {
         lives--;
@@ -206,6 +260,9 @@ void loop() {
             px = 0; py = 0;
         }
     }
+    
+    updateSparx(sparx1);
+    updateSparx(sparx2);
     
     display_clear();
     
@@ -223,6 +280,9 @@ void loop() {
     drawCircle(OFFSET_X + (int)px*CELL_SIZE + 2, OFFSET_Y + (int)py*CELL_SIZE + 2, 1, 1);
     
     drawCircle(OFFSET_X + (int)spark.x*CELL_SIZE + 2, OFFSET_Y + (int)spark.y*CELL_SIZE + 2, 2, 1);
+    
+    if (sparx1.active) drawRect(OFFSET_X + sparx1.x*CELL_SIZE, OFFSET_Y + sparx1.y*CELL_SIZE, CELL_SIZE, CELL_SIZE, 1);
+    if (sparx2.active) drawRect(OFFSET_X + sparx2.x*CELL_SIZE, OFFSET_Y + sparx2.y*CELL_SIZE, CELL_SIZE, CELL_SIZE, 1);
     
     drawText(0, 0, "S:"); drawText(12, 0, score);
     drawText(90, 0, "L:"); drawText(102, 0, lives);

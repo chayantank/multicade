@@ -12,6 +12,8 @@ namespace Gravity {
     void drawLine(int x0, int y0, int x1, int y1, int color);
     void drawText(int x, int y, const char* str);
     void drawText(int x, int y, int num);
+    void drawPixel(int x, int y, int color);
+    void drawCircle(int x0, int y0, int r, int color);
 }
 
 #endif

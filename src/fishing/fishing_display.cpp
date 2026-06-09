@@ -39,4 +39,8 @@ void drawText(int x, int y, int num) {
     menuDisplay.print(num);
 }
 
+void drawPixel(int x, int y, int color) {
+    menuDisplay.drawPixel(x, y, color == 1 ? WHITE : BLACK);
+}
+
 }
