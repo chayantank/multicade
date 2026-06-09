@@ -31,6 +31,7 @@
 #include "stealth/stealth_main.h"
 #include "qix/qix_main.h"
 #include "fishing/fishing_main.h"
+#include "towerdef/towerdef_main.h"
 
 int active_game = 0;
 
@@ -90,7 +91,7 @@ int menuSelection = 1;
 int menuScroll = 1;
 bool lastSw = LOW;
 unsigned long lastMoveTime = 0;
-const int TOTAL_GAMES = 50;
+const int TOTAL_GAMES = 51;
 const char* menuItems[TOTAL_GAMES] = {
     "1. Doom", "2. Tetris", "3. Space Invaders", "4. Pac-Man",
     "5. Racing", "6. Breakout", "7. Flappy Bird", "8. Snake",
@@ -104,7 +105,7 @@ const char* menuItems[TOTAL_GAMES] = {
     "37. Missile Cmd", "38. Q*bert", "39. Stacker", "40. 2048",
     "41. Fruit Slice", "42. Pinball", "43. Lemmings", "44. Slingshot",
     "45. Gravity Flip", "46. Minimax Chess", "47. Bounce Classic", "48. Stealth",
-    "49. Qix Capture", "50. Fishing"
+    "49. Qix Capture", "50. Fishing", "51. Tower Def"
 };
 
 void setupMenu() {
@@ -304,6 +305,7 @@ void setup() {
             case 48: Stealth::setup(); break;
             case 49: Qix::setup(); break;
             case 50: Fishing::setup(); break;
+            case 51: Towerdef::setup(); break;
         }
     }
 }
@@ -384,6 +386,7 @@ void loop() {
             case 48: Stealth::loop(); break;
             case 49: Qix::loop(); break;
             case 50: Fishing::loop(); break;
+            case 51: Towerdef::loop(); break;
         }
     }
 }

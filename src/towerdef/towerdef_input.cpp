@@ -1,31 +1,61 @@
 #include "towerdef_input.h"
 #include <Arduino.h>
 
-#define VRX_PIN 34
-#define VRY_PIN 35
-#define SW_PIN 27
+#define JOY_X 34
+#define JOY_Y 35
+#define JOY_SW 32
 
 namespace Towerdef {
 
 void input_setup() {
-    pinMode(VRX_PIN, INPUT);
-    pinMode(VRY_PIN, INPUT);
-    pinMode(SW_PIN, INPUT_PULLUP);
+    pinMode(JOY_SW, INPUT_PULLUP);
 }
 
 int input_x() {
-    return analogRead(VRX_PIN);
+    return analogRead(JOY_X);
 }
 
 int input_y() {
-    return analogRead(VRY_PIN);
+    return analogRead(JOY_Y);
 }
 
 bool input_action() {
     static bool lastState = HIGH;
-    bool state = digitalRead(SW_PIN);
-    bool pressed = (state == LOW && lastState == HIGH);
-    lastState = state;
+    bool currentState = digitalRead(JOY_SW);
+    bool pressed = (lastState == HIGH && currentState == LOW);
+    lastState = currentState;
+    return pressed;
+}
+
+bool input_up() {
+    static bool lastState = false;
+    bool currentState = analogRead(JOY_Y) < 1000;
+    bool pressed = (currentState && !lastState);
+    lastState = currentState;
+    return pressed;
+}
+
+bool input_down() {
+    static bool lastState = false;
+    bool currentState = analogRead(JOY_Y) > 3000;
+    bool pressed = (currentState && !lastState);
+    lastState = currentState;
+    return pressed;
+}
+
+bool input_left() {
+    static bool lastState = false;
+    bool currentState = analogRead(JOY_X) < 1000;
+    bool pressed = (currentState && !lastState);
+    lastState = currentState;
+    return pressed;
+}
+
+bool input_right() {
+    static bool lastState = false;
+    bool currentState = analogRead(JOY_X) > 3000;
+    bool pressed = (currentState && !lastState);
+    lastState = currentState;
     return pressed;
 }
 
