@@ -10,17 +10,27 @@ void input_setup() {
 }
 
 bool input_action() {
-    static bool lastState = HIGH;
-    static unsigned long lastPress = 0;
-    bool state = digitalRead(SW_PIN);
+    static unsigned long lastEdgeTime = 0;
+    static bool lastReading = HIGH;
+    static bool buttonState = HIGH;
     bool pressed = false;
-    if (state == LOW && lastState == HIGH) {
-        if (millis() - lastPress > 200) {
-            pressed = true;
-            lastPress = millis();
+
+    bool reading = digitalRead(SW_PIN);
+    
+    if (reading != lastReading) {
+        lastEdgeTime = millis();
+    }
+    
+    if (millis() - lastEdgeTime > 50) {
+        if (reading != buttonState) {
+            buttonState = reading;
+            if (buttonState == LOW) {
+                pressed = true;
+            }
         }
     }
-    lastState = state;
+    
+    lastReading = reading;
     return pressed;
 }
 

@@ -48,28 +48,36 @@ bool input_right() {
 }
 
 bool input_action() {
-    static bool lastState = HIGH;
-    static unsigned long lastPress = 0;
-    bool state = digitalRead(SW_PIN);
+    static unsigned long lastEdgeTime = 0;
+    static bool lastReading = HIGH;
+    static bool buttonState = HIGH;
     bool pressed = false;
+
+    bool reading = digitalRead(SW_PIN);
     
-    if (state == LOW && lastState == HIGH) {
-        if (millis() - lastPress > 200) {
-            pressed = true;
-            lastPress = millis();
+    if (reading != lastReading) {
+        lastEdgeTime = millis();
+    }
+    
+    if (millis() - lastEdgeTime > 50) {
+        if (reading != buttonState) {
+            buttonState = reading;
+            if (buttonState == LOW) {
+                pressed = true;
+            }
         }
     }
     
     static uint32_t hold_start = 0;
-    if (state == LOW) {
-        if (lastState == HIGH) hold_start = millis();
+    if (reading == LOW) {
+        if (lastReading == HIGH) hold_start = millis();
         else if (millis() - hold_start >= 3000) {
-            active_game = 0;
+            ::active_game = 0;
             ESP.restart();
         }
     }
     
-    lastState = state;
+    lastReading = reading;
     return pressed;
 }
 

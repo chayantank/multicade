@@ -20,17 +20,27 @@ int input_y() {
 }
 
 bool input_action() {
-    static bool lastState = HIGH;
-    static unsigned long lastPress = 0;
-    bool currentState = digitalRead(JOY_SW);
+    static unsigned long lastEdgeTime = 0;
+    static bool lastReading = HIGH;
+    static bool buttonState = HIGH;
     bool pressed = false;
-    if (currentState == LOW && lastState == HIGH) {
-        if (millis() - lastPress > 200) {
-            pressed = true;
-            lastPress = millis();
+
+    bool reading = digitalRead(JOY_SW);
+    
+    if (reading != lastReading) {
+        lastEdgeTime = millis();
+    }
+    
+    if (millis() - lastEdgeTime > 50) {
+        if (reading != buttonState) {
+            buttonState = reading;
+            if (buttonState == LOW) {
+                pressed = true;
+            }
         }
     }
-    lastState = currentState;
+    
+    lastReading = reading;
     return pressed;
 }
 
