@@ -526,8 +526,6 @@ void loop() {
     if (state == STATE_AI_TURN) {
         display_clear();
         drawBoardUI();
-        drawText(70, 20, "AI");
-        drawText(70, 35, "THINKING");
         display_render();
         
         Move best = getBestMove(2, BLACK);
@@ -571,9 +569,7 @@ void loop() {
             resetGame();
         }
     } else if (state == STATE_PLAYER_TURN) {
-        drawText(75, 10, "CHESS");
-        drawText(75, 30, "YOUR");
-        drawText(75, 45, "TURN");
+        // Text removed to not overlap with magnifier
     }
     
     display_render();
