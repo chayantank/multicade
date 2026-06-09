@@ -305,6 +305,17 @@ Move getBestMove(int depth, int side) {
     return bestMove;
 }
 
+void drawScaledBitmap(int x, int y, const unsigned char* bmp, int scale, int color) {
+    for (int r = 0; r < 8; r++) {
+        unsigned char row = bmp[r];
+        for (int c = 0; c < 8; c++) {
+            if (row & (0x80 >> c)) {
+                fillRect(x + c * scale, y + r * scale, scale, scale, color);
+            }
+        }
+    }
+}
+
 void drawBoardUI() {
     for(int i=0; i<=8; i++) {
         drawLine(i*8, 0, i*8, 64, 1);
@@ -340,8 +351,8 @@ void drawBoardUI() {
     
     if (selectedSq != -1) {
         Move moves[250];
-    int count = generateMoves(WHITE, moves);
-    if (count > 240) count = 240;
+        int count = generateMoves(WHITE, moves);
+        if (count > 240) count = 240;
         for(int i=0; i<count; i++) {
             if (moves[i].from == selectedSq) {
                 int original = board[moves[i].from];
@@ -358,6 +369,60 @@ void drawBoardUI() {
     
     drawRect(cursorX*8, cursorY*8, 8, 8, 1);
     drawRect(cursorX*8+1, cursorY*8+1, 6, 6, 1);
+    
+    // Magnified View
+    int magX = 74;
+    int magY = 8;
+    int magS = 16;
+    
+    drawRect(magX - 2, magY - 2, magS*3 + 4, magS*3 + 4, 1);
+    
+    for (int r_off = -1; r_off <= 1; r_off++) {
+        for (int c_off = -1; c_off <= 1; c_off++) {
+            int br = cursorY + r_off;
+            int bc = cursorX + c_off;
+            int dr = r_off + 1;
+            int dc = c_off + 1;
+            int drawX = magX + dc * magS;
+            int drawY = magY + dr * magS;
+            
+            drawRect(drawX, drawY, magS, magS, 1);
+            
+            if (br >= 0 && br < 8 && bc >= 0 && bc < 8) {
+                int p = board[br * 8 + bc];
+                if (p != 0) {
+                    int pt = abs(p);
+                    const unsigned char* bmp = nullptr;
+                    if (p > 0) {
+                        if (pt == PAWN) bmp = bmp_w_pawn;
+                        if (pt == KNIGHT) bmp = bmp_w_knight;
+                        if (pt == BISHOP) bmp = bmp_w_bishop;
+                        if (pt == ROOK) bmp = bmp_w_rook;
+                        if (pt == QUEEN) bmp = bmp_w_queen;
+                        if (pt == KING) bmp = bmp_w_king;
+                    } else {
+                        if (pt == PAWN) bmp = bmp_b_pawn;
+                        if (pt == KNIGHT) bmp = bmp_b_knight;
+                        if (pt == BISHOP) bmp = bmp_b_bishop;
+                        if (pt == ROOK) bmp = bmp_b_rook;
+                        if (pt == QUEEN) bmp = bmp_b_queen;
+                        if (pt == KING) bmp = bmp_b_king;
+                    }
+                    if (bmp) {
+                        drawScaledBitmap(drawX, drawY, bmp, 2, 1);
+                    }
+                }
+                
+                if (r_off == 0 && c_off == 0) {
+                    drawRect(drawX + 1, drawY + 1, magS - 2, magS - 2, 1);
+                    drawRect(drawX + 2, drawY + 2, magS - 4, magS - 4, 1);
+                }
+            } else {
+                drawLine(drawX, drawY, drawX + magS, drawY + magS, 1);
+                drawLine(drawX + magS, drawY, drawX, drawY + magS, 1);
+            }
+        }
+    }
 }
 
 unsigned long stateTimer = 0;
