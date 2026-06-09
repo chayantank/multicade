@@ -22,27 +22,20 @@ int input_y() {
 }
 
 bool input_action() {
-    static unsigned long lastEdgeTime = 0;
-    static bool lastReading = HIGH;
+    static unsigned long lastStateChange = 0;
     static bool buttonState = HIGH;
+    bool reading = digitalRead(SW_PIN);
     bool pressed = false;
 
-    bool reading = digitalRead(SW_PIN);
-    
-    if (reading != lastReading) {
-        lastEdgeTime = millis();
-    }
-    
-    if (millis() - lastEdgeTime > 50) {
+    if (millis() - lastStateChange > 50) {
         if (reading != buttonState) {
             buttonState = reading;
+            lastStateChange = millis();
             if (buttonState == LOW) {
                 pressed = true;
             }
         }
     }
-    
-    lastReading = reading;
     return pressed;
 }
 
