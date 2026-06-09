@@ -10,4 +10,7 @@ namespace Egg {
     void drawText(int x, int y, const char* text);
     void drawText(int x, int y, int number);
     void drawHeart(int x, int y);
+    void drawBomb(int x, int y);
+    void drawStar(int x, int y);
+    void fillRect(int x, int y, int w, int h);
 }

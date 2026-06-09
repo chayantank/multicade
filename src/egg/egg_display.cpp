@@ -64,4 +64,24 @@ void drawHeart(int x, int y) {
     menuDisplay.drawPixel(x + 3, y + 5, 1);
 }
 
+void drawBomb(int x, int y) {
+    menuDisplay.fillCircle(x, y, 3, 1);
+    menuDisplay.drawLine(x, y-3, x, y-5, 1);
+    if(millis() % 200 < 100) menuDisplay.drawPixel(x, y-6, 1);
+}
+
+void drawStar(int x, int y) {
+    menuDisplay.drawPixel(x, y-2, 1);
+    menuDisplay.drawPixel(x-2, y, 1);
+    menuDisplay.drawPixel(x+2, y, 1);
+    menuDisplay.drawPixel(x, y+2, 1);
+    menuDisplay.drawPixel(x, y, 1);
+    menuDisplay.drawLine(x-1, y-1, x+1, y+1, 1);
+    menuDisplay.drawLine(x+1, y-1, x-1, y+1, 1);
+}
+
+void fillRect(int x, int y, int w, int h) {
+    menuDisplay.fillRect(x, y, w, h, 1);
+}
+
 }

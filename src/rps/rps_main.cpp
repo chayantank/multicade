@@ -1,6 +1,7 @@
 #include "rps_main.h"
 #include "rps_display.h"
 #include "rps_input.h"
+#include <Arduino.h>
 
 #define BUZZER_PIN 14
 
@@ -11,8 +12,10 @@ const int SCREEN_H = 64;
 
 enum GameState {
     STATE_SELECT,
+    STATE_THROW_ANIM,
     STATE_REVEAL,
-    STATE_RESULT
+    STATE_RESULT,
+    STATE_GAMEOVER
 };
 
 GameState state = STATE_SELECT;
@@ -22,19 +25,22 @@ int playerChoice = 0;
 int cpuChoice = 0;
 int resultStatus = 0; // 0=Draw, 1=Win, -1=Loss
 
-int playerScore = 0;
-int cpuScore = 0;
+int playerHealth = 100;
+int cpuHealth = 100;
 
 unsigned long stateTimer = 0;
 unsigned long lastMoveTime = 0;
 bool lastFire = false;
 
+int throwFrame = 0;
+int shakeAmount = 0;
+
 void setup() {
     display_setup();
     input_setup();
     state = STATE_SELECT;
-    playerScore = 0;
-    cpuScore = 0;
+    playerHealth = 100;
+    cpuHealth = 100;
 }
 
 void loop() {
@@ -56,76 +62,120 @@ void loop() {
         }
 
         display_clear();
-        drawText(35, 2, "MAKE CHOICE");
+        drawText(30, 2, "BATTLE RPS");
         
         for (int i = 0; i < 3; i++) {
             int y = 20 + (i * 14);
             if (i == playerChoice) {
-                fillRect(10, y - 2, 70, 12, 1);
+                fillRect(5, y - 2, 60, 12, 1);
                 drawTextInverted(15, y, choices[i]);
             } else {
                 drawText(15, y, choices[i]);
             }
         }
 
-        drawText(95, 25, "YOU:");
-        drawText(120, 25, playerScore);
-        drawText(95, 40, "CPU:");
-        drawText(120, 40, cpuScore);
+        drawText(75, 20, "YOU");
+        drawRect(75, 30, 40, 6, 1);
+        fillRect(76, 31, (playerHealth * 38) / 100, 4, 1);
+        
+        drawText(75, 40, "CPU");
+        drawRect(75, 50, 40, 6, 1);
+        fillRect(76, 51, (cpuHealth * 38) / 100, 4, 1);
 
         display_render();
 
         if (currentFire && !lastFire) {
             cpuChoice = random(0, 3);
-            state = STATE_REVEAL;
+            state = STATE_THROW_ANIM;
             stateTimer = millis();
+            throwFrame = 0;
             tone(BUZZER_PIN, 800, 100);
         }
         
-    } else if (state == STATE_REVEAL) {
+    } else if (state == STATE_THROW_ANIM) {
         display_clear();
-        drawText(35, 25, "SHOOT!");
+        unsigned long elapsed = millis() - stateTimer;
+        
+        if (elapsed < 600) { drawTextLarge(50, 25, "3"); if(throwFrame==0) { throwFrame++; tone(BUZZER_PIN, 800, 50); } }
+        else if (elapsed < 1200) { drawTextLarge(50, 25, "2"); if(throwFrame==1) { throwFrame++; tone(BUZZER_PIN, 800, 50); } }
+        else if (elapsed < 1800) { drawTextLarge(50, 25, "1"); if(throwFrame==2) { throwFrame++; tone(BUZZER_PIN, 800, 50); } }
+        else {
+            state = STATE_REVEAL;
+            stateTimer = millis();
+            tone(BUZZER_PIN, 1500, 200);
+        }
         display_render();
 
-        if (millis() - stateTimer > 1000) {
-            // Calculate winner
+    } else if (state == STATE_REVEAL) {
+        display_clear();
+        drawTextLarge(35, 25, "SHOOT!");
+        display_render();
+
+        if (millis() - stateTimer > 800) {
             if (playerChoice == cpuChoice) {
                 resultStatus = 0;
             } else if ((playerChoice == 0 && cpuChoice == 2) || 
                        (playerChoice == 1 && cpuChoice == 0) || 
                        (playerChoice == 2 && cpuChoice == 1)) {
                 resultStatus = 1;
-                playerScore++;
+                cpuHealth -= 34; 
                 tone(BUZZER_PIN, 1200, 200);
             } else {
                 resultStatus = -1;
-                cpuScore++;
+                playerHealth -= 34;
                 tone(BUZZER_PIN, 100, 400);
             }
+            shakeAmount = 10;
             state = STATE_RESULT;
+            stateTimer = millis();
         }
         
     } else if (state == STATE_RESULT) {
         display_clear();
         
-        drawText(5, 10, "YOU:");
-        drawText(35, 10, choices[playerChoice]);
+        int ox = 0, oy = 0;
+        if (resultStatus != 0 && shakeAmount > 0) {
+            ox = random(-shakeAmount, shakeAmount);
+            oy = random(-shakeAmount, shakeAmount);
+            shakeAmount--;
+        }
         
-        drawText(5, 25, "CPU:");
-        drawText(35, 25, choices[cpuChoice]);
+        drawText(5 + ox, 10 + oy, "YOU:");
+        drawText(35 + ox, 10 + oy, choices[playerChoice]);
+        
+        drawText(5 + ox, 25 + oy, "CPU:");
+        drawText(35 + ox, 25 + oy, choices[cpuChoice]);
         
         if (resultStatus == 1) {
-            drawTextLarge(15, 45, "YOU WIN!");
+            drawTextLarge(15 + ox, 45 + oy, "YOU WIN!");
         } else if (resultStatus == -1) {
-            drawTextLarge(10, 45, "YOU LOSE!");
+            drawTextLarge(10 + ox, 45 + oy, "YOU LOSE!");
         } else {
-            drawTextLarge(35, 45, "DRAW!");
+            drawTextLarge(35 + ox, 45 + oy, "DRAW!");
         }
 
         display_render();
 
-        if (currentFire && !lastFire) {
-            state = STATE_SELECT;
+        if (millis() - stateTimer > 1000 && currentFire && !lastFire) {
+            if (playerHealth <= 0 || cpuHealth <= 0) {
+                state = STATE_GAMEOVER;
+                stateTimer = millis();
+            } else {
+                state = STATE_SELECT;
+            }
+        }
+    } else if (state == STATE_GAMEOVER) {
+        display_clear();
+        if (playerHealth <= 0) {
+            drawTextLarge(15, 25, "DEFEAT!");
+        } else {
+            drawTextLarge(15, 25, "VICTORY!");
+        }
+        drawText(15, 50, "PRESS TO RESTART");
+        display_render();
+        
+        if (millis() - stateTimer > 1000 && currentFire && !lastFire) {
+            setup();
         }
     }
     
