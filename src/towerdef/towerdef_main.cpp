@@ -10,15 +10,16 @@ namespace Towerdef {
 enum GameState { STATE_INTRO, STATE_PLAYING, STATE_GAMEOVER };
 GameState state = STATE_INTRO;
 
-const int NUM_WP = 6;
-float wpx[NUM_WP] = {0, 30, 30, 100, 100, 130};
-float wpy[NUM_WP] = {30, 30, 50, 50, 25, 25};
+const int NUM_WP = 9;
+float wpx[NUM_WP] = {0, 30, 30, 60, 60, 90, 90, 120, 120};
+float wpy[NUM_WP] = {15, 15, 45, 45, 15, 15, 45, 45, -10};
 
 struct Enemy {
     float x, y;
     float hp, maxHp;
     float speed;
     int wpIndex;
+    int type; // 0=Normal, 1=Fast, 2=Tank, 3=Boss
     bool active;
 };
 
@@ -28,15 +29,20 @@ Enemy enemies[MAX_ENEMIES];
 struct Spot {
     int x, y;
     int type; // 0=Empty, 1=Archer, 2=Cannon, 3=Mage
+    int level; // 1, 2, 3
     float cooldown;
+    int spentGold;
 };
-const int NUM_SPOTS = 5;
+const int NUM_SPOTS = 8;
 Spot spots[NUM_SPOTS] = {
-    {15, 20, 0, 0},
-    {45, 40, 0, 0},
-    {80, 60, 0, 0},
-    {85, 35, 0, 0},
-    {115, 35, 0, 0}
+    {15, 30, 0, 0, 0, 0},
+    {45, 30, 0, 0, 0, 0},
+    {75, 30, 0, 0, 0, 0},
+    {105, 30, 0, 0, 0, 0},
+    {15, 55, 0, 0, 0, 0},
+    {75, 55, 0, 0, 0, 0},
+    {45, 5, 0, 0, 0, 0},
+    {105, 5, 0, 0, 0, 0}
 };
 
 struct Proj {
@@ -84,7 +90,7 @@ void resetGame() {
     for(int i=0; i<MAX_ENEMIES; i++) enemies[i].active = false;
     for(int i=0; i<MAX_PROJ; i++) projectiles[i].active = false;
     for(int i=0; i<MAX_EXP; i++) explosions[i].active = false;
-    for(int i=0; i<NUM_SPOTS; i++) { spots[i].type = 0; spots[i].cooldown = 0; }
+    for(int i=0; i<NUM_SPOTS; i++) { spots[i].type = 0; spots[i].level = 0; spots[i].spentGold = 0; spots[i].cooldown = 0; }
     state = STATE_PLAYING;
 }
 
@@ -101,9 +107,19 @@ void spawnEnemy() {
             enemies[i].x = wpx[0];
             enemies[i].y = wpy[0];
             enemies[i].wpIndex = 1;
-            enemies[i].maxHp = 10 + wave * 5;
+            int eType = 0;
+            if (wave % 5 == 0 && enemiesToSpawn == 1) eType = 3;
+            else {
+                int r = random(0, 100);
+                if (wave > 2 && r < 30) eType = 1;
+                else if (wave > 3 && r > 75) eType = 2;
+            }
+            enemies[i].type = eType;
+            if (eType == 0) { enemies[i].maxHp = 10 + wave * 5; enemies[i].speed = 10.0f + wave * 1.0f; }
+            else if (eType == 1) { enemies[i].maxHp = 5 + wave * 3; enemies[i].speed = 20.0f + wave * 1.5f; }
+            else if (eType == 2) { enemies[i].maxHp = 30 + wave * 15; enemies[i].speed = 5.0f + wave * 0.5f; }
+            else if (eType == 3) { enemies[i].maxHp = 100 + wave * 40; enemies[i].speed = 4.0f + wave * 0.5f; }
             enemies[i].hp = enemies[i].maxHp;
-            enemies[i].speed = 10.0f + wave * 1.5f;
             break;
         }
     }
@@ -188,30 +204,56 @@ void loop() {
         if (selectedSpot >= NUM_SPOTS) selectedSpot = 0;
         
         if (input_action()) {
-            if (spots[selectedSpot].type == 0) {
-                menuOpen = true;
-                menuSelection = 0;
-                tone(BUZZER_PIN, 800, 30);
-            } else {
-                tone(BUZZER_PIN, 300, 30);
-            }
+            menuOpen = true;
+            menuSelection = 0;
+            tone(BUZZER_PIN, 800, 30);
         }
     } else {
         if (input_up()) { menuSelection--; tone(BUZZER_PIN, 400, 20); delay(150); }
         if (input_down()) { menuSelection++; tone(BUZZER_PIN, 400, 20); delay(150); }
-        if (menuSelection < 0) menuSelection = 2;
-        if (menuSelection > 2) menuSelection = 0;
+        int maxMenu = (spots[selectedSpot].type == 0) ? 2 : 1;
+        if (menuSelection < 0) menuSelection = maxMenu;
+        if (menuSelection > maxMenu) menuSelection = 0;
         
         if (input_action()) {
-            int cost = (menuSelection == 0) ? 10 : ((menuSelection == 1) ? 20 : 30);
-            if (gold >= cost) {
-                gold -= cost;
-                spots[selectedSpot].type = menuSelection + 1;
-                tone(BUZZER_PIN, 1200, 100);
+            if (spots[selectedSpot].type == 0) {
+                int cost = (menuSelection == 0) ? 10 : ((menuSelection == 1) ? 20 : 30);
+                if (gold >= cost) {
+                    gold -= cost;
+                    spots[selectedSpot].type = menuSelection + 1;
+                    spots[selectedSpot].level = 1;
+                    spots[selectedSpot].spentGold = cost;
+                    tone(BUZZER_PIN, 1200, 100);
+                    menuOpen = false;
+                } else {
+                    tone(BUZZER_PIN, 200, 100);
+                }
             } else {
-                tone(BUZZER_PIN, 200, 100);
+                if (menuSelection == 0) {
+                    if (spots[selectedSpot].level < 3) {
+                        int cost = (spots[selectedSpot].type == 1) ? 10 : ((spots[selectedSpot].type == 2) ? 20 : 30);
+                        cost *= spots[selectedSpot].level;
+                        if (gold >= cost) {
+                            gold -= cost;
+                            spots[selectedSpot].level++;
+                            spots[selectedSpot].spentGold += cost;
+                            tone(BUZZER_PIN, 1500, 100);
+                            menuOpen = false;
+                        } else {
+                            tone(BUZZER_PIN, 200, 100);
+                        }
+                    } else {
+                        tone(BUZZER_PIN, 200, 100);
+                    }
+                } else if (menuSelection == 1) {
+                    gold += spots[selectedSpot].spentGold / 2;
+                    spots[selectedSpot].type = 0;
+                    spots[selectedSpot].level = 0;
+                    spots[selectedSpot].spentGold = 0;
+                    tone(BUZZER_PIN, 500, 100);
+                    menuOpen = false;
+                }
             }
-            menuOpen = false;
         }
         // Right/Left to cancel
         if (input_right() || input_left()) {
@@ -279,7 +321,9 @@ void loop() {
             if (spots[i].cooldown <= 0) {
                 int bestTarget = -1;
                 float bestDist = 999;
-                float range = (spots[i].type == 1) ? 35.0f : ((spots[i].type == 2) ? 45.0f : 55.0f);
+                float lvlMult = 1.0f + (spots[i].level - 1) * 0.5f;
+                float baseRange = (spots[i].type == 1) ? 35.0f : ((spots[i].type == 2) ? 45.0f : 55.0f);
+                float range = baseRange * (1.0f + (spots[i].level-1)*0.2f);
                 
                 for(int e=0; e<MAX_ENEMIES; e++) {
                     if (enemies[e].active) {
@@ -292,9 +336,11 @@ void loop() {
                 }
                 
                 if (bestTarget != -1) {
-                    float dmg = (spots[i].type == 1) ? 5.0f : ((spots[i].type == 2) ? 15.0f : 25.0f);
+                    float baseDmg = (spots[i].type == 1) ? 5.0f : ((spots[i].type == 2) ? 15.0f : 25.0f);
+                    float dmg = baseDmg * lvlMult;
                     fireProjectile(spots[i].x, spots[i].y, bestTarget, dmg, spots[i].type);
-                    spots[i].cooldown = (spots[i].type == 1) ? 0.5f : ((spots[i].type == 2) ? 2.0f : 1.2f);
+                    float baseCd = (spots[i].type == 1) ? 0.5f : ((spots[i].type == 2) ? 2.0f : 1.2f);
+                    spots[i].cooldown = baseCd / (1.0f + (spots[i].level-1)*0.3f);
                     tone(BUZZER_PIN, (spots[i].type == 1) ? 1000 : 400, 20);
                 }
             }
@@ -336,7 +382,8 @@ void loop() {
                                 enemies[e].hp -= projectiles[i].damage;
                                 if (enemies[e].hp <= 0) {
                                     enemies[e].active = false;
-                                    gold += 2; score += 10;
+                                    int gDrop = (enemies[e].type == 3) ? 25 : ((enemies[e].type == 2) ? 5 : ((enemies[e].type == 1) ? 1 : 2));
+                                    gold += gDrop; score += 10;
                                 }
                             }
                         }
@@ -347,7 +394,8 @@ void loop() {
                         enemies[e].hp -= projectiles[i].damage;
                         if (enemies[e].hp <= 0) {
                             enemies[e].active = false;
-                            gold += 2; score += 10;
+                            int gDrop = (enemies[e].type == 3) ? 25 : ((enemies[e].type == 2) ? 5 : ((enemies[e].type == 1) ? 1 : 2));
+                            gold += gDrop; score += 10;
                             tone(BUZZER_PIN, 1200, 30);
                         }
                     }
@@ -392,6 +440,12 @@ void loop() {
             drawCircle(spots[i].x, spots[i].y, 2, 1);
         }
         
+        if (spots[i].type > 0) {
+            for(int lvl=0; lvl<spots[i].level; lvl++) {
+                drawRect(spots[i].x - 4 + (lvl*3), spots[i].y - 8, 2, 2, 1);
+            }
+        }
+        
         if (selectedSpot == i && !menuOpen) {
             drawRect(spots[i].x-6, spots[i].y-6, 13, 13, 1);
         }
@@ -400,10 +454,15 @@ void loop() {
     // Enemies
     for(int i=0; i<MAX_ENEMIES; i++) {
         if (enemies[i].active) {
-            fillRect((int)enemies[i].x - 2, (int)enemies[i].y - 2, 5, 5, 1);
+            int ex = (int)enemies[i].x; int ey = (int)enemies[i].y;
+            if (enemies[i].type == 0) fillRect(ex-2, ey-2, 5, 5, 1);
+            else if (enemies[i].type == 1) { drawLine(ex, ey-3, ex-3, ey+3, 1); drawLine(ex-3, ey+3, ex+3, ey+3, 1); drawLine(ex+3, ey+3, ex, ey-3, 1); }
+            else if (enemies[i].type == 2) fillRect(ex-4, ey-4, 9, 9, 1);
+            else if (enemies[i].type == 3) { fillRect(ex-5, ey-5, 11, 11, 1); drawRect(ex-3, ey-3, 7, 7, 0); }
+            
             if (enemies[i].hp < enemies[i].maxHp) {
                 int hpW = (int)((enemies[i].hp / enemies[i].maxHp) * 6.0f);
-                drawLine((int)enemies[i].x - 3, (int)enemies[i].y - 5, (int)enemies[i].x - 3 + hpW, (int)enemies[i].y - 5, 1);
+                drawLine(ex - 3, ey - 5, ex - 3 + hpW, ey - 5, 1);
             }
         }
     }
@@ -438,9 +497,20 @@ void loop() {
         fillRect(mx, my, 55, 32, 0);
         drawRect(mx, my, 55, 32, 1);
         
-        drawText(mx+2, my+2, "Arc 10");
-        drawText(mx+2, my+12, "Can 20");
-        drawText(mx+2, my+22, "Mag 30");
+        if (spots[selectedSpot].type == 0) {
+            drawText(mx+2, my+2, "Arc 10");
+            drawText(mx+2, my+12, "Can 20");
+            drawText(mx+2, my+22, "Mag 30");
+        } else {
+            if (spots[selectedSpot].level < 3) {
+                int cost = (spots[selectedSpot].type == 1) ? 10 : ((spots[selectedSpot].type == 2) ? 20 : 30);
+                cost *= spots[selectedSpot].level;
+                drawText(mx+2, my+2, "Upg"); drawText(mx+25, my+2, cost);
+            } else {
+                drawText(mx+2, my+2, "Max Lvl");
+            }
+            drawText(mx+2, my+12, "Sell"); drawText(mx+30, my+12, spots[selectedSpot].spentGold / 2);
+        }
         
         drawText(mx+45, my+2 + (menuSelection*10), "<");
     }
