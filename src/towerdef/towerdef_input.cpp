@@ -21,8 +21,15 @@ int input_y() {
 
 bool input_action() {
     static bool lastState = HIGH;
+    static unsigned long lastPress = 0;
     bool currentState = digitalRead(JOY_SW);
-    bool pressed = (lastState == HIGH && currentState == LOW);
+    bool pressed = false;
+    if (currentState == LOW && lastState == HIGH) {
+        if (millis() - lastPress > 200) {
+            pressed = true;
+            lastPress = millis();
+        }
+    }
     lastState = currentState;
     return pressed;
 }

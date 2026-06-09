@@ -36,6 +36,7 @@ int score = 0;
 bool gameOver = false;
 bool levelClear = false;
 int lives = 3;
+bool showIntro = true;
 
 void resetLevel() {
     for(int x=0; x<GRID_W; x++) {
@@ -58,6 +59,7 @@ void setup() {
     input_setup();
     score = 0;
     lives = 3;
+    showIntro = true;
     resetLevel();
 }
 
@@ -150,6 +152,22 @@ unsigned long lastTime = 0;
 
 void loop() {
     unsigned long now = millis();
+    
+    if (showIntro) {
+        display_clear();
+        drawRect(0, 0, 128, 64, 1);
+        drawRect(2, 2, 124, 60, 1);
+        drawText(40, 20, "QIX");
+        if ((now / 500) % 2 == 0) drawText(20, 45, "CLICK TO START");
+        display_render();
+        if (input_action()) {
+            tone(BUZZER_PIN, 800, 100);
+            delay(200);
+            showIntro = false;
+            resetLevel();
+        }
+        return;
+    }
     float dt = (now - lastTime) / 1000.0f;
     lastTime = now;
     if (dt > 0.05f) dt = 0.05f;

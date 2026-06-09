@@ -33,8 +33,16 @@ bool input_down() {
 
 bool input_action() {
     static bool lastState = HIGH;
+    static unsigned long lastPress = 0;
     bool state = digitalRead(SW_PIN);
-    bool pressed = (state == LOW && lastState == HIGH);
+    bool pressed = false;
+    
+    if (state == LOW && lastState == HIGH) {
+        if (millis() - lastPress > 200) {
+            pressed = true;
+            lastPress = millis();
+        }
+    }
     lastState = state;
     
     static uint32_t hold_start = 0;

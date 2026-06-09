@@ -34,6 +34,7 @@ float cameraX = 0;
 int level = 1;
 bool gameOver = false;
 bool levelClear = false;
+bool showIntro = true;
 
 void loadLevel() {
     if (level == 1) {
@@ -75,6 +76,7 @@ void setup() {
     display_setup();
     input_setup();
     level = 1;
+    showIntro = true;
     loadLevel();
 }
 
@@ -85,6 +87,22 @@ void loop() {
     float dt = (now - lastTime) / 1000.0f;
     lastTime = now;
     if (dt > 0.05f) dt = 0.05f;
+    
+    if (showIntro) {
+        display_clear();
+        drawRect(0, 0, 128, 64, 1);
+        drawRect(2, 2, 124, 60, 1);
+        drawText(35, 20, "BOUNCE");
+        if ((now / 500) % 2 == 0) drawText(20, 45, "CLICK TO START");
+        display_render();
+        if (input_action()) {
+            tone(BUZZER_PIN, 800, 100);
+            delay(200);
+            showIntro = false;
+            loadLevel();
+        }
+        return;
+    }
     
     if (gameOver) {
         display_clear();

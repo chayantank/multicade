@@ -29,6 +29,7 @@ float captureProgress = 0;
 int catches = 0;
 int score = 0;
 bool gameOver = false;
+bool showIntro = true;
 
 unsigned long lastTime = 0;
 int fishTimer = 0;
@@ -46,6 +47,7 @@ void resetGame() {
 void setup() {
     display_setup();
     input_setup();
+    showIntro = true;
     resetGame();
 }
 
@@ -54,6 +56,29 @@ void loop() {
     float dt = (now - lastTime) / 1000.0f;
     lastTime = now;
     if (dt > 0.05f) dt = 0.05f;
+    
+    if (showIntro) {
+        display_clear();
+        drawRect(0, 0, 128, 64, 1);
+        drawRect(2, 2, 124, 60, 1);
+        drawText(30, 20, "FISHING");
+        if ((now / 500) % 2 == 0) drawText(20, 45, "CLICK TO START");
+        display_render();
+        
+        bool pressed = false;
+        static bool lastState = HIGH;
+        bool currentState = digitalRead(32);
+        if (lastState == HIGH && currentState == LOW) pressed = true;
+        lastState = currentState;
+        
+        if (pressed) {
+            tone(BUZZER_PIN, 800, 100);
+            delay(200);
+            showIntro = false;
+            resetGame();
+        }
+        return;
+    }
     
     if (gameOver) {
         display_clear();
