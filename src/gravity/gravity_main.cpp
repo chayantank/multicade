@@ -7,6 +7,14 @@
 
 namespace Gravity {
 
+enum GameState {
+    STATE_INTRO,
+    STATE_PLAYING,
+    STATE_GAMEOVER
+};
+
+GameState state = STATE_INTRO;
+
 struct Spikes {
     float x;
     bool isTop;
@@ -43,7 +51,6 @@ float py = 32;
 float vy = 0;
 float gravity = 300.0f; 
 int score = 0;
-bool gameOver = false;
 float speed = 60.0f;
 
 void spawnParticles(float x, float y) {
@@ -63,20 +70,21 @@ void resetGame() {
     gravity = 300.0f;
     score = 0;
     speed = 60.0f;
-    gameOver = false;
     for(int i=0; i<MAX_SPIKES; i++) spikes[i].active = false;
     for(int i=0; i<MAX_COINS; i++) coins[i].active = false;
     for(int i=0; i<MAX_LASERS; i++) lasers[i].active = false;
     for(int i=0; i<MAX_PARTICLES; i++) particles[i].active = false;
+    state = STATE_PLAYING;
 }
 
 void setup() {
     display_setup();
     input_setup();
-    resetGame();
+    state = STATE_INTRO;
 }
 
 unsigned long lastTime = 0;
+unsigned long stateTimer = 0;
 
 void loop() {
     unsigned long now = millis();
@@ -84,12 +92,32 @@ void loop() {
     lastTime = now;
     if (dt > 0.05f) dt = 0.05f;
     
-    if (gameOver) {
+    if (state == STATE_INTRO) {
+        display_clear();
+        drawRect(0, 0, 128, 64, 1);
+        drawRect(2, 2, 124, 60, 1);
+        drawText(25, 20, "GRAVITY FLIP");
+        
+        if ((now / 500) % 2 == 0) {
+            drawText(20, 45, "CLICK TO START");
+        }
+        display_render();
+        
+        if (input_action()) {
+            tone(BUZZER_PIN, 800, 100);
+            delay(200);
+            resetGame();
+        }
+        return;
+    }
+    
+    if (state == STATE_GAMEOVER) {
         display_clear();
         drawText(35, 20, "GAME OVER");
         drawText(40, 30, score);
+        drawText(15, 50, "CLICK TO RESTART");
         display_render();
-        if (input_action() && now % 500 < 50) {
+        if (input_action() && now - stateTimer > 500) {
             tone(BUZZER_PIN, 800, 100); delay(200);
             resetGame();
         }
@@ -117,8 +145,8 @@ void loop() {
             if (spikes[i].x < -10) spikes[i].active = false;
             
             if (spikes[i].x < 24 && spikes[i].x + 10 > 20) {
-                if (spikes[i].isTop && py < 17) { gameOver = true; tone(BUZZER_PIN, 100, 300); }
-                if (!spikes[i].isTop && py > 43) { gameOver = true; tone(BUZZER_PIN, 100, 300); }
+                if (spikes[i].isTop && py < 17) { state = STATE_GAMEOVER; stateTimer = now; tone(BUZZER_PIN, 100, 300); }
+                if (!spikes[i].isTop && py > 43) { state = STATE_GAMEOVER; stateTimer = now; tone(BUZZER_PIN, 100, 300); }
             }
         }
     }
@@ -144,7 +172,8 @@ void loop() {
             
             if (lasers[i].x < 24 && lasers[i].x > 16) {
                 if (py > lasers[i].y && py < lasers[i].y + lasers[i].length) {
-                    gameOver = true;
+                    state = STATE_GAMEOVER;
+                    stateTimer = now;
                     tone(BUZZER_PIN, 100, 300);
                 }
             }
@@ -192,7 +221,7 @@ void loop() {
         }
     }
     
-    if(!gameOver && random(0, 10) == 0) score++;
+    if(state == STATE_PLAYING && random(0, 10) == 0) score++;
     
     display_clear();
     drawLine(0, 0, 127, 0, 1);

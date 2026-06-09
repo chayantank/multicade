@@ -35,4 +35,8 @@ void drawText(int x, int y, int num) {
     menuDisplay.print(num);
 }
 
+void drawRect(int x, int y, int w, int h, int color) {
+    menuDisplay.drawRect(x, y, w, h, color == 1 ? WHITE : BLACK);
+}
+
 }

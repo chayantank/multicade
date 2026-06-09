@@ -13,6 +13,7 @@ struct Block {
     float vx, vy;
     bool active;
     bool isPig;
+    bool isTNT;
 };
 
 const int MAX_BLOCKS = 15;
@@ -28,6 +29,7 @@ struct Bird {
 Bird bird;
 
 enum State {
+    STATE_INTRO,
     AIMING,
     FLYING,
     SIMULATING,
@@ -47,24 +49,25 @@ void loadLevel() {
     for(int i=0; i<MAX_BLOCKS; i++) blocks[i].active = false;
     
     if (level == 1) {
-        blocks[0] = {90, 54, 10, 10, 0, 0, true, false};
-        blocks[1] = {90, 44, 10, 10, 0, 0, true, false};
-        blocks[2] = {92, 38, 6, 6, 0, 0, true, true};
+        blocks[0] = {90, 54, 10, 10, 0, 0, true, false, false};
+        blocks[1] = {90, 44, 10, 10, 0, 0, true, false, false};
+        blocks[2] = {92, 38, 6, 6, 0, 0, true, true, false};
     } else if (level == 2) {
-        blocks[0] = {80, 54, 10, 10, 0, 0, true, false};
-        blocks[1] = {100, 54, 10, 10, 0, 0, true, false};
-        blocks[2] = {80, 44, 30, 10, 0, 0, true, false};
-        blocks[3] = {88, 56, 6, 6, 0, 0, true, true};
+        blocks[0] = {80, 54, 10, 10, 0, 0, true, false, false};
+        blocks[1] = {100, 54, 10, 10, 0, 0, true, false, false};
+        blocks[2] = {80, 44, 30, 10, 0, 0, true, false, false};
+        blocks[3] = {88, 56, 6, 6, 0, 0, true, true, false};
+        blocks[4] = {90, 34, 10, 10, 0, 0, true, false, true}; // TNT on top
     } else {
-        blocks[0] = {70, 54, 8, 10, 0, 0, true, false};
-        blocks[1] = {90, 54, 8, 10, 0, 0, true, false};
-        blocks[2] = {110, 54, 8, 10, 0, 0, true, false};
-        blocks[3] = {70, 44, 48, 10, 0, 0, true, false};
-        blocks[4] = {80, 34, 10, 10, 0, 0, true, false};
-        blocks[5] = {100, 34, 10, 10, 0, 0, true, false};
-        blocks[6] = {80, 56, 6, 6, 0, 0, true, true};
-        blocks[7] = {100, 56, 6, 6, 0, 0, true, true};
-        blocks[8] = {90, 28, 6, 6, 0, 0, true, true};
+        blocks[0] = {70, 54, 8, 10, 0, 0, true, false, false};
+        blocks[1] = {90, 54, 8, 10, 0, 0, true, false, true}; // TNT inside
+        blocks[2] = {110, 54, 8, 10, 0, 0, true, false, false};
+        blocks[3] = {70, 44, 48, 10, 0, 0, true, false, false};
+        blocks[4] = {80, 34, 10, 10, 0, 0, true, false, false};
+        blocks[5] = {100, 34, 10, 10, 0, 0, true, false, false};
+        blocks[6] = {80, 56, 6, 6, 0, 0, true, true, false};
+        blocks[7] = {100, 56, 6, 6, 0, 0, true, true, false};
+        blocks[8] = {90, 28, 6, 6, 0, 0, true, true, false};
     }
     
     state = AIMING;
@@ -83,15 +86,37 @@ void resetGame() {
 void setup() {
     display_setup();
     input_setup();
-    resetGame();
+    state = STATE_INTRO;
 }
 
 bool checkCollision(float ax, float ay, float aw, float ah, float bx, float by, float bw, float bh) {
     return (ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by);
 }
 
+void explodeTNT(int tntIndex) {
+    blocks[tntIndex].active = false;
+    float tx = blocks[tntIndex].x + blocks[tntIndex].w/2;
+    float ty = blocks[tntIndex].y + blocks[tntIndex].h/2;
+    
+    for(int i=0; i<MAX_BLOCKS; i++) {
+        if (blocks[i].active) {
+            float cx = blocks[i].x + blocks[i].w/2;
+            float cy = blocks[i].y + blocks[i].h/2;
+            float dx = cx - tx;
+            float dy = cy - ty;
+            float dist = sqrt(dx*dx + dy*dy);
+            if (dist < 40) {
+                blocks[i].vx += (dx / dist) * 200.0f;
+                blocks[i].vy += (dy / dist) * 200.0f - 50.0f;
+            }
+        }
+    }
+    tone(BUZZER_PIN, 100, 400); // Explosion sound
+}
+
 unsigned long lastTime = 0;
 unsigned long simStartTime = 0;
+unsigned long stateTimer = 0;
 
 void loop() {
     unsigned long now = millis();
@@ -99,9 +124,29 @@ void loop() {
     lastTime = now;
     if (dt > 0.05f) dt = 0.05f;
     
+    if (state == STATE_INTRO) {
+        display_clear();
+        drawRect(0, 0, 128, 64, 1);
+        drawRect(2, 2, 124, 60, 1);
+        drawText(35, 20, "SLINGSHOT");
+        
+        if ((now / 500) % 2 == 0) {
+            drawText(20, 45, "CLICK TO START");
+        }
+        display_render();
+        
+        if (input_action()) {
+            tone(BUZZER_PIN, 800, 100);
+            delay(200);
+            resetGame();
+        }
+        return;
+    }
+    
     if (state == GAME_OVER) {
         display_clear();
         drawText(35, 20, "GAME OVER");
+        drawText(15, 45, "CLICK TO RESTART");
         display_render();
         if (input_action() && now - simStartTime > 1000) resetGame();
         return;
@@ -110,6 +155,7 @@ void loop() {
     if (state == LEVEL_CLEAR) {
         display_clear();
         drawText(30, 20, "LEVEL CLEAR");
+        drawText(20, 45, "CLICK TO CONT");
         display_render();
         if (input_action() && now - simStartTime > 1000) {
             level++;
@@ -179,15 +225,19 @@ void loop() {
             if (bird.flying) {
                 for(int i=0; i<MAX_BLOCKS; i++) {
                     if (blocks[i].active && checkCollision(bird.x-2, bird.y-2, 4, 4, blocks[i].x, blocks[i].y, blocks[i].w, blocks[i].h)) {
-                        blocks[i].vx += bird.vx * 0.5f;
-                        blocks[i].vy += bird.vy * 0.5f;
-                        bird.vx *= 0.5f;
-                        bird.vy *= 0.5f;
-                        if (blocks[i].isPig) {
-                            blocks[i].active = false;
-                            tone(BUZZER_PIN, 1200, 50);
+                        if (blocks[i].isTNT) {
+                            explodeTNT(i);
                         } else {
-                            tone(BUZZER_PIN, 200, 30);
+                            blocks[i].vx += bird.vx * 0.5f;
+                            blocks[i].vy += bird.vy * 0.5f;
+                            bird.vx *= 0.5f;
+                            bird.vy *= 0.5f;
+                            if (blocks[i].isPig) {
+                                blocks[i].active = false;
+                                tone(BUZZER_PIN, 1200, 50);
+                            } else {
+                                tone(BUZZER_PIN, 200, 30);
+                            }
                         }
                     }
                 }
@@ -204,6 +254,9 @@ void loop() {
                         blocks[i].y = 64 - blocks[i].h;
                         blocks[i].vy *= -0.3f;
                         blocks[i].vx *= 0.8f;
+                        if (blocks[i].isTNT && abs(blocks[i].vy) > 40) {
+                            explodeTNT(i);
+                        }
                     }
                     
                     if (blocks[i].isPig && (abs(blocks[i].vx) > 30 || abs(blocks[i].vy) > 30)) {
@@ -214,14 +267,20 @@ void loop() {
                     for(int j=0; j<MAX_BLOCKS; j++) {
                         if (i!=j && blocks[j].active) {
                             if (checkCollision(blocks[i].x, blocks[i].y, blocks[i].w, blocks[i].h, blocks[j].x, blocks[j].y, blocks[j].w, blocks[j].h)) {
-                                if (blocks[i].y < blocks[j].y) {
-                                    blocks[i].y = blocks[j].y - blocks[i].h;
-                                    blocks[i].vy = 0;
-                                    blocks[j].vy = 0;
+                                if (blocks[i].isTNT && (abs(blocks[i].vx) > 40 || abs(blocks[i].vy) > 40 || abs(blocks[j].vx) > 40 || abs(blocks[j].vy) > 40)) {
+                                    explodeTNT(i);
+                                } else if (blocks[j].isTNT && (abs(blocks[i].vx) > 40 || abs(blocks[i].vy) > 40 || abs(blocks[j].vx) > 40 || abs(blocks[j].vy) > 40)) {
+                                    explodeTNT(j);
                                 } else {
-                                    blocks[j].y = blocks[i].y - blocks[j].h;
-                                    blocks[i].vy = 0;
-                                    blocks[j].vy = 0;
+                                    if (blocks[i].y < blocks[j].y) {
+                                        blocks[i].y = blocks[j].y - blocks[i].h;
+                                        blocks[i].vy = 0;
+                                        blocks[j].vy = 0;
+                                    } else {
+                                        blocks[j].y = blocks[i].y - blocks[j].h;
+                                        blocks[i].vy = 0;
+                                        blocks[j].vy = 0;
+                                    }
                                 }
                             }
                         }
@@ -273,6 +332,10 @@ void loop() {
         if (blocks[i].active) {
             if (blocks[i].isPig) {
                 drawCircle((int)(blocks[i].x + blocks[i].w/2), (int)(blocks[i].y + blocks[i].h/2), 3, 1);
+            } else if (blocks[i].isTNT) {
+                drawRect((int)blocks[i].x, (int)blocks[i].y, (int)blocks[i].w, (int)blocks[i].h, 1);
+                drawLine((int)blocks[i].x, (int)blocks[i].y, (int)(blocks[i].x+blocks[i].w), (int)(blocks[i].y+blocks[i].h), 1);
+                drawLine((int)(blocks[i].x+blocks[i].w), (int)blocks[i].y, (int)blocks[i].x, (int)(blocks[i].y+blocks[i].h), 1);
             } else {
                 drawRect((int)blocks[i].x, (int)blocks[i].y, (int)blocks[i].w, (int)blocks[i].h, 1);
             }

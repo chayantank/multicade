@@ -23,6 +23,10 @@ void fillRect(int x, int y, int w, int h, int color) {
     menuDisplay.fillRect(x, y, w, h, color);
 }
 
+void drawLine(int x0, int y0, int x1, int y1, int color) {
+    menuDisplay.drawLine(x0, y0, x1, y1, color);
+}
+
 void drawText(int x, int y, const char* text) {
     menuDisplay.setTextSize(1);
     menuDisplay.setTextColor(WHITE);

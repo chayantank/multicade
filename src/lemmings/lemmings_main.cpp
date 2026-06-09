@@ -7,6 +7,14 @@
 
 namespace Lemmings {
 
+enum GameState {
+    STATE_INTRO,
+    STATE_PLAYING,
+    STATE_GAMEOVER
+};
+
+GameState state = STATE_INTRO;
+
 enum Job {
     WALKER = 0,
     BLOCKER = 1,
@@ -39,7 +47,7 @@ int toolsLeft[4] = {0, 3, 5, 5};
 int savedCount = 0;
 int spawnCount = 0;
 unsigned long lastSpawnTime = 0;
-bool gameOver = false;
+float timeScale = 1.0f; // Added speed up
 
 void initGrid() {
     for(int x=0; x<128; x++) {
@@ -62,39 +70,63 @@ void resetGame() {
     }
     savedCount = 0;
     spawnCount = 0;
-    gameOver = false;
+    timeScale = 1.0f;
     cursorX = 64; cursorY = 27;
     toolsLeft[1] = 3; toolsLeft[2] = 5; toolsLeft[3] = 5;
+    state = STATE_PLAYING;
 }
 
 void setup() {
     display_setup();
     input_setup();
-    resetGame();
+    state = STATE_INTRO;
 }
 
 unsigned long lastTime = 0;
+unsigned long stateTimer = 0;
 
 void loop() {
     unsigned long now = millis();
-    float dt = (now - lastTime) / 1000.0f;
+    float rawDt = (now - lastTime) / 1000.0f;
     lastTime = now;
-    if (dt > 0.1f) dt = 0.1f;
+    if (rawDt > 0.1f) rawDt = 0.1f;
     
-    if (gameOver) {
+    if (state == STATE_INTRO) {
+        display_clear();
+        drawRect(0, 0, 128, 64, 1);
+        drawRect(2, 2, 124, 60, 1);
+        drawText(40, 20, "LEMMINGS");
+        
+        if ((now / 500) % 2 == 0) {
+            drawText(20, 45, "CLICK TO START");
+        }
+        display_render();
+        
+        if (input_action()) {
+            tone(BUZZER_PIN, 800, 100);
+            delay(200);
+            resetGame();
+        }
+        return;
+    }
+    
+    if (state == STATE_GAMEOVER) {
         display_clear();
         drawText(35, 20, "GAME OVER");
         drawText(30, 30, "SAVED:");
         drawText(70, 30, savedCount);
+        drawText(15, 50, "CLICK TO RESTART");
         display_render();
-        if (input_action()) {
+        if (input_action() && now - stateTimer > 500) {
             tone(BUZZER_PIN, 800, 100); delay(200);
             resetGame();
         }
         return;
     }
     
-    if (spawnCount < MAX_LEMS && now - lastSpawnTime > 2000) {
+    float dt = rawDt * timeScale; // Apply speedup
+    
+    if (spawnCount < MAX_LEMS && now - lastSpawnTime > 2000 / timeScale) {
         lems[spawnCount].active = true;
         lems[spawnCount].x = 20;
         lems[spawnCount].y = 10;
@@ -107,18 +139,24 @@ void loop() {
     int jx = input_x() - 2048;
     int jy = input_y() - 2048;
     
-    if (abs(jx) > 500) cursorX += (jx > 0 ? 1 : -1) * 80.0f * dt;
-    if (abs(jy) > 500) cursorY += (jy > 0 ? 1 : -1) * 80.0f * dt;
+    // Cursor moves normally regardless of time scale
+    if (abs(jx) > 500) cursorX += (jx > 0 ? 1 : -1) * 80.0f * rawDt;
+    if (abs(jy) > 500) cursorY += (jy > 0 ? 1 : -1) * 80.0f * rawDt;
     
     if (cursorX < 0) cursorX = 0; if (cursorX > 127) cursorX = 127;
     if (cursorY < 0) cursorY = 0; if (cursorY > 63) cursorY = 63;
     
     if (input_action()) {
         if (cursorY > 54) {
-            if (cursorX < 40) selectedTool = 1;
-            else if (cursorX < 80) selectedTool = 2;
-            else selectedTool = 3;
-            tone(BUZZER_PIN, 1500, 30);
+            if (cursorX < 30) selectedTool = 1;
+            else if (cursorX < 60) selectedTool = 2;
+            else if (cursorX < 90) selectedTool = 3;
+            else {
+                // Clicked the Fast Forward button
+                timeScale = (timeScale > 1.5f) ? 1.0f : 2.5f;
+                tone(BUZZER_PIN, 2000, 50);
+            }
+            if (cursorX < 90) tone(BUZZER_PIN, 1500, 30);
         } else {
             for(int i=0; i<MAX_LEMS; i++) {
                 if (lems[i].active && !lems[i].dead && !lems[i].saved) {
@@ -171,7 +209,11 @@ void loop() {
                     if (iy < 53 && grid[ix][iy+2] == 0) lems[i].job = FALLER;
                 } else if (lems[i].job == BUILDER) {
                     if (lems[i].buildCount < 10) {
-                        if (now % 500 < 50) {
+                        // Use a timed accumulator rather than now%500 to respect time scale
+                        static float buildAcc = 0;
+                        buildAcc += dt;
+                        if (buildAcc > 0.5f) {
+                            buildAcc = 0;
                             int sx = ix + lems[i].dir;
                             if (sx>=0 && sx<128 && iy>0) {
                                 grid[sx][iy] = 1;
@@ -200,7 +242,8 @@ void loop() {
     }
     
     if (spawnCount == MAX_LEMS && activeLems == 0) {
-        gameOver = true;
+        state = STATE_GAMEOVER;
+        stateTimer = now;
     }
     
     display_clear();
@@ -227,13 +270,17 @@ void loop() {
     }
     
     drawLine(0, 54, 128, 54, 1);
-    drawText(2, 56, "B:"); drawText(14, 56, toolsLeft[1]);
-    drawText(42, 56, "S:"); drawText(54, 56, toolsLeft[2]);
-    drawText(82, 56, "D:"); drawText(94, 56, toolsLeft[3]);
+    drawText(2, 56, "B"); drawText(10, 56, toolsLeft[1]);
+    drawText(32, 56, "S"); drawText(40, 56, toolsLeft[2]);
+    drawText(62, 56, "D"); drawText(70, 56, toolsLeft[3]);
     
-    if (selectedTool == 1) drawRect(0, 55, 30, 9, 1);
-    else if (selectedTool == 2) drawRect(40, 55, 30, 9, 1);
-    else drawRect(80, 55, 30, 9, 1);
+    // Fast forward button text
+    if (timeScale > 1.5f) drawText(100, 56, ">>>");
+    else drawText(100, 56, ">>");
+    
+    if (selectedTool == 1) drawRect(0, 55, 25, 9, 1);
+    else if (selectedTool == 2) drawRect(30, 55, 25, 9, 1);
+    else if (selectedTool == 3) drawRect(60, 55, 25, 9, 1);
     
     drawLine((int)cursorX-2, (int)cursorY, (int)cursorX+2, (int)cursorY, 1);
     drawLine((int)cursorX, (int)cursorY-2, (int)cursorX, (int)cursorY+2, 1);

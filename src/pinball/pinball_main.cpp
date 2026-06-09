@@ -7,6 +7,14 @@
 
 namespace Pinball {
 
+enum GameState {
+    STATE_INTRO,
+    STATE_PLAYING,
+    STATE_GAMEOVER
+};
+
+GameState state = STATE_INTRO;
+
 struct Ball {
     float x, y;
     float vx, vy;
@@ -25,8 +33,14 @@ Bumper bumpers[NUM_BUMPERS] = {
     {32, 20, 6}, {64, 15, 6}, {96, 20, 6}
 };
 
-float leftFlipAngle = 0.2f; // resting
-float rightFlipAngle = 2.94f; // resting
+struct Target {
+    float x, y, vx, r;
+    bool active;
+};
+Target movingTarget = {64, 8, 40.0f, 4.0f, true};
+
+float leftFlipAngle = 0.2f; 
+float rightFlipAngle = 2.94f; 
 
 float lfx = 40, lfy = 60;
 float rfx = 88, rfy = 60;
@@ -34,13 +48,11 @@ float flipLen = 16.0f;
 
 int score = 0;
 int balls = 3;
-bool gameOver = false;
 bool plunging = true;
 
 void resetGame() {
     score = 0;
     balls = 3;
-    gameOver = false;
     plunging = true;
     ball.x = 120;
     ball.y = 50;
@@ -48,15 +60,16 @@ void resetGame() {
     ball.vy = 0;
     ball.r = 2.0f;
     ball.active = true;
+    state = STATE_PLAYING;
 }
 
 void setup() {
     display_setup();
     input_setup();
-    resetGame();
+    state = STATE_INTRO;
 }
 
-void resolveCircleCollision(float& bx, float& by, float& bvx, float& bvy, float cx, float cy, float cr) {
+void resolveCircleCollision(float& bx, float& by, float& bvx, float& bvy, float cx, float cy, float cr, int pts) {
     float dx = bx - cx;
     float dy = by - cy;
     float dist = sqrt(dx*dx + dy*dy);
@@ -72,8 +85,12 @@ void resolveCircleCollision(float& bx, float& by, float& bvx, float& bvy, float 
             bvy = bvy - 2 * dot * ny;
             bvx += nx * 100.0f;
             bvy += ny * 100.0f;
-            score += 50;
-            tone(BUZZER_PIN, 1200, 50);
+            score += pts;
+            if (pts > 50) {
+                tone(BUZZER_PIN, 2000, 100);
+            } else {
+                tone(BUZZER_PIN, 1200, 50);
+            }
         }
     }
 }
@@ -115,6 +132,7 @@ void resolveLineCollision(float& bx, float& by, float& bvx, float& bvy, float x1
 }
 
 unsigned long lastTime = 0;
+unsigned long stateTimer = 0;
 
 void loop() {
     unsigned long now = millis();
@@ -122,12 +140,32 @@ void loop() {
     lastTime = now;
     if (dt > 0.05f) dt = 0.05f;
     
-    if (gameOver) {
+    if (state == STATE_INTRO) {
+        display_clear();
+        drawRect(0, 0, 128, 64, 1);
+        drawRect(2, 2, 124, 60, 1);
+        drawText(40, 20, "PINBALL");
+        
+        if ((now / 500) % 2 == 0) {
+            drawText(20, 45, "CLICK TO START");
+        }
+        display_render();
+        
+        if (input_left() || input_right() || input_plunge()) {
+            tone(BUZZER_PIN, 800, 100);
+            delay(200);
+            resetGame();
+        }
+        return;
+    }
+    
+    if (state == STATE_GAMEOVER) {
         display_clear();
         drawText(35, 20, "GAME OVER");
         drawText(40, 30, score);
+        drawText(15, 50, "CLICK TO RESTART");
         display_render();
-        if (input_left() || input_right()) {
+        if ((input_left() || input_right() || input_plunge()) && now - stateTimer > 500) {
             resetGame();
             tone(BUZZER_PIN, 800, 100); delay(200);
         }
@@ -159,13 +197,21 @@ void loop() {
             ball.x += ball.vx * subDt;
             ball.y += ball.vy * subDt;
             
+            // Move target
+            movingTarget.x += movingTarget.vx * subDt;
+            if (movingTarget.x < 10) { movingTarget.x = 10; movingTarget.vx = -movingTarget.vx; }
+            if (movingTarget.x > 110) { movingTarget.x = 110; movingTarget.vx = -movingTarget.vx; }
+            
             if (ball.x < 2) { ball.x = 2; ball.vx *= -0.8f; }
             if (ball.x > 115) { ball.x = 115; ball.vx *= -0.8f; }
             if (ball.y < 2) { ball.y = 2; ball.vy *= -0.8f; }
             
             for(int i=0; i<NUM_BUMPERS; i++) {
-                resolveCircleCollision(ball.x, ball.y, ball.vx, ball.vy, bumpers[i].x, bumpers[i].y, bumpers[i].r);
+                resolveCircleCollision(ball.x, ball.y, ball.vx, ball.vy, bumpers[i].x, bumpers[i].y, bumpers[i].r, 50);
             }
+            
+            // Resolve moving target collision
+            resolveCircleCollision(ball.x, ball.y, ball.vx, ball.vy, movingTarget.x, movingTarget.y, movingTarget.r, 200);
             
             resolveLineCollision(ball.x, ball.y, ball.vx, ball.vy, lfx, lfy, lfx2, lfy2, input_left());
             resolveLineCollision(ball.x, ball.y, ball.vx, ball.vy, rfx, rfy, rfx2, rfy2, input_right());
@@ -176,8 +222,10 @@ void loop() {
             if (ball.y > 64) {
                 balls--;
                 tone(BUZZER_PIN, 100, 300);
-                if (balls <= 0) gameOver = true;
-                else {
+                if (balls <= 0) {
+                    state = STATE_GAMEOVER;
+                    stateTimer = now;
+                } else {
                     plunging = true;
                     ball.x = 120;
                     ball.y = 50;
@@ -206,6 +254,9 @@ void loop() {
         drawCircle(bumpers[i].x, bumpers[i].y, bumpers[i].r, 1);
         drawCircle(bumpers[i].x, bumpers[i].y, bumpers[i].r-2, 1);
     }
+    
+    // Draw Moving Target
+    fillRect((int)movingTarget.x - 2, (int)movingTarget.y - 2, 5, 5, 1);
     
     drawLine((int)lfx, (int)lfy, (int)lfx2, (int)lfy2, 1);
     drawLine((int)rfx, (int)rfy, (int)rfx2, (int)rfy2, 1);
