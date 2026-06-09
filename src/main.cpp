@@ -19,8 +19,22 @@
 #include "suika/suika_main.h"
 #include "missile/missile_main.h"
 #include "qbert/qbert_main.h"
+#include "stacker/stacker_main.h"
+#include "g2048/g2048_main.h"
+#include "slice/slice_main.h"
+#include "pinball/pinball_main.h"
+#include "lemmings/lemmings_main.h"
+#include "slingshot/slingshot_main.h"
+#include "gravity/gravity_main.h"
+#include "towerdef/towerdef_main.h"
+#include "bounce/bounce_main.h"
+#include "stealth/stealth_main.h"
+#include "qix/qix_main.h"
+#include "fishing/fishing_main.h"
 
-int active_game = 0; // 0=Menu, 1=Doom, 2=Tetris, 3=Invaders, 4=Pacman.
+int active_game = 0;
+
+// Hardware pins
 
 #define JOY_Y 35
 #define JOY_SW 27
@@ -55,15 +69,18 @@ namespace Golf { void setup(); void loop(); }
 namespace Suika { void setup(); void loop(); }
 namespace Missile { void setup(); void loop(); }
 namespace Qbert { void setup(); void loop(); }
-namespace Dino { void setup(); void loop(); }
-namespace Rhythm { void setup(); void loop(); }
-namespace Pet { void setup(); void loop(); }
-namespace Golf { void setup(); void loop(); }
-namespace Suika { void setup(); void loop(); }
-namespace Missile { void setup(); void loop(); }
-namespace Qbert { void setup(); void loop(); }
 namespace Stacker { void setup(); void loop(); }
 namespace G2048 { void setup(); void loop(); }
+namespace Slice { void setup(); void loop(); }
+namespace Pinball { void setup(); void loop(); }
+namespace Lemmings { void setup(); void loop(); }
+namespace Slingshot { void setup(); void loop(); }
+namespace Gravity { void setup(); void loop(); }
+namespace Towerdef { void setup(); void loop(); }
+namespace Bounce { void setup(); void loop(); }
+namespace Stealth { void setup(); void loop(); }
+namespace Qix { void setup(); void loop(); }
+namespace Fishing { void setup(); void loop(); }
 
 Adafruit_SSD1306 menuDisplay(128, 64, &Wire, -1);
 
@@ -73,49 +90,21 @@ int menuSelection = 1;
 int menuScroll = 1;
 bool lastSw = LOW;
 unsigned long lastMoveTime = 0;
-#define NUM_GAMES 40
-
-const char* gameNames[NUM_GAMES] = {
-    "1. DOOM (Raycast)",
-    "2. TETRIS",
-    "3. INVADERS",
-    "4. PAC-MAN",
-    "5. RACING",
-    "6. BREAKOUT",
-    "7. FLAPPY",
-    "8. SNAKE",
-    "9. ASTEROIDS",
-    "10. MINESWEEPER",
-    "11. ROCK PAP SCIS",
-    "12. EGG CATCH",
-    "13. SIMON SAYS",
-    "14. MAZE RUNNER",
-    "15. PLATFORMER",
-    "16. STARFIGHTER",
-    "17. RPG",
-    "18. PUNCH-OUT",
-    "19. BOMBARDIER",
-    "20. BALLOON JOUST",
-    "21. HOPPER",
-    "22. DUCK SHOOT",
-    "23. BARREL CLIMBER",
-    "24. MOTOCROSS",
-    "25. MICRO FIGHTER",
-    "26. LUNAR LANDER",
-    "27. PAPER ROUTE",
-    "28. SOKOBAN",
-    "29. LIGHTCYCLE",
-    "30. BOMBERBOY",
-    "31. TERRARIA",
-    "32. DINO RUN",
-    "33. OLED HERO",
-    "34. POCKET PET",
-    "35. PIXEL GOLF",
-    "36. SUIKA DROP",
-    "37. MISSILE CMD",
-    "38. Q*BERT",
-    "39. STACKER",
-    "40. 2048"
+const int TOTAL_GAMES = 50;
+const char* menuItems[TOTAL_GAMES] = {
+    "1. Doom", "2. Tetris", "3. Space Invaders", "4. Pac-Man",
+    "5. Racing", "6. Breakout", "7. Flappy Bird", "8. Snake",
+    "9. Asteroids", "10. Minesweeper", "11. RPS", "12. Catch Egg",
+    "13. Simon Says", "14. Maze Runner", "15. Platformer", "16. Starfighter",
+    "17. RPG", "18. Punch-Out", "19. Bomber", "20. Balloon",
+    "21. Hopper", "22. Duck Shoot", "23. Barrel Jump", "24. MotoCross",
+    "25. Street Fighter", "26. Lunar Lander", "27. Paperboy", "28. Sokoban",
+    "29. Lightcycle", "30. Bomberboy", "31. Terraria", "32. Dino Run",
+    "33. Rhythm Hero", "34. Pocket Pet", "35. Pixel Golf", "36. Suika Drop",
+    "37. Missile Cmd", "38. Q*bert", "39. Stacker", "40. 2048",
+    "41. Fruit Slice", "42. Pinball", "43. Lemmings", "44. Slingshot",
+    "45. Gravity Flip", "46. Tower Def", "47. Bounce Classic", "48. Stealth",
+    "49. Qix Capture", "50. Fishing"
 };
 
 void setupMenu() {
@@ -134,8 +123,8 @@ void loopMenu() {
         if (y < 1200) { 
             menuSelection--;
             if (menuSelection < 1) {
-                menuSelection = NUM_GAMES;
-                menuScroll = NUM_GAMES - 3;
+                menuSelection = TOTAL_GAMES;
+                menuScroll = TOTAL_GAMES - 3;
             } else if (menuSelection < menuScroll) {
                 menuScroll--;
             }
@@ -143,7 +132,7 @@ void loopMenu() {
             lastMoveTime = millis();
         } else if (y > 2800) { 
             menuSelection++;
-            if (menuSelection > NUM_GAMES) {
+            if (menuSelection > TOTAL_GAMES) {
                 menuSelection = 1;
                 menuScroll = 1;
             } else if (menuSelection > menuScroll + 3) {
@@ -168,12 +157,12 @@ void loopMenu() {
     
     menuDisplay.setTextSize(1);
     for(int i = menuScroll; i <= menuScroll + 3; i++) {
-        if (i > NUM_GAMES) break;
+        if (i > TOTAL_GAMES) break;
         
         int row = i - menuScroll;
         int textY = boxY + row * 10;
         
-        int len = strlen(gameNames[i-1]);
+        int len = strlen(menuItems[i-1]);
         int textX = (128 - (len * 6)) / 2;
         
         if (menuSelection == i) {
@@ -187,11 +176,11 @@ void loopMenu() {
             menuDisplay.print("<");
             
             menuDisplay.setCursor(textX, textY);
-            menuDisplay.print(gameNames[i-1]);
+            menuDisplay.print(menuItems[i-1]);
         } else {
             menuDisplay.setTextColor(WHITE);
             menuDisplay.setCursor(textX, textY);
-            menuDisplay.print(gameNames[i-1]);
+            menuDisplay.print(menuItems[i-1]);
         }
     }
     
@@ -305,6 +294,16 @@ void setup() {
             case 38: Qbert::setup(); break;
             case 39: Stacker::setup(); break;
             case 40: G2048::setup(); break;
+            case 41: Slice::setup(); break;
+            case 42: Pinball::setup(); break;
+            case 43: Lemmings::setup(); break;
+            case 44: Slingshot::setup(); break;
+            case 45: Gravity::setup(); break;
+            case 46: Towerdef::setup(); break;
+            case 47: Bounce::setup(); break;
+            case 48: Stealth::setup(); break;
+            case 49: Qix::setup(); break;
+            case 50: Fishing::setup(); break;
         }
     }
 }
@@ -367,6 +366,16 @@ void loop() {
             case 38: Qbert::loop(); break;
             case 39: Stacker::loop(); break;
             case 40: G2048::loop(); break;
+            case 41: Slice::loop(); break;
+            case 42: Pinball::loop(); break;
+            case 43: Lemmings::loop(); break;
+            case 44: Slingshot::loop(); break;
+            case 45: Gravity::loop(); break;
+            case 46: Towerdef::loop(); break;
+            case 47: Bounce::loop(); break;
+            case 48: Stealth::loop(); break;
+            case 49: Qix::loop(); break;
+            case 50: Fishing::loop(); break;
         }
     }
 }
