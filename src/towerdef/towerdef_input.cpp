@@ -3,7 +3,7 @@
 
 #define JOY_X 34
 #define JOY_Y 35
-#define JOY_SW 32
+#define JOY_SW 27
 
 namespace Towerdef {
 
