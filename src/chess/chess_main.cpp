@@ -235,8 +235,9 @@ int evaluate() {
 int minimax(int depth, int alpha, int beta, int side) {
     if (depth == 0) return evaluate();
     
-    Move moves[100];
+    Move moves[250];
     int count = generateMoves(side, moves);
+    if (count > 240) count = 240;
     
     int bestVal = (side == WHITE) ? -99999 : 99999;
     bool hasValidMove = false;
@@ -275,8 +276,9 @@ int minimax(int depth, int alpha, int beta, int side) {
 }
 
 Move getBestMove(int depth, int side) {
-    Move moves[100];
+    Move moves[250];
     int count = generateMoves(side, moves);
+    if (count > 240) count = 240;
     
     int bestVal = (side == WHITE) ? -99999 : 99999;
     Move bestMove = {0, 0, 0};
@@ -337,8 +339,9 @@ void drawBoardUI() {
     }
     
     if (selectedSq != -1) {
-        Move moves[100];
-        int count = generateMoves(WHITE, moves);
+        Move moves[250];
+    int count = generateMoves(WHITE, moves);
+    if (count > 240) count = 240;
         for(int i=0; i<count; i++) {
             if (moves[i].from == selectedSq) {
                 int original = board[moves[i].from];
@@ -409,8 +412,9 @@ void loop() {
                     selectedSq = sq;
                     tone(BUZZER_PIN, 800, 30);
                 } else {
-                    Move moves[100];
+                    Move moves[250];
                     int count = generateMoves(WHITE, moves);
+                    if (count > 240) count = 240;
                     bool valid = false;
                     for(int i=0; i<count; i++) {
                         if (moves[i].from == selectedSq && moves[i].to == sq) {
@@ -429,8 +433,9 @@ void loop() {
                         selectedSq = -1;
                         state = STATE_AI_TURN;
                         
-                        Move aiMoves[100];
+                        Move aiMoves[250];
                         int aiCount = generateMoves(BLACK, aiMoves);
+                        if (aiCount > 240) aiCount = 240;
                         bool aiHasMoves = false;
                         for(int j=0; j<aiCount; j++) {
                             int orig = board[aiMoves[j].from];
@@ -460,7 +465,7 @@ void loop() {
         drawText(70, 35, "THINKING");
         display_render();
         
-        Move best = getBestMove(3, BLACK);
+        Move best = getBestMove(2, BLACK);
         if (best.from == 0 && best.to == 0) {
             state = STATE_GAMEOVER;
             stateTimer = now;
@@ -469,8 +474,9 @@ void loop() {
             tone(BUZZER_PIN, 600, 50);
             state = STATE_PLAYER_TURN;
             
-            Move playerMoves[100];
+            Move playerMoves[250];
             int pCount = generateMoves(WHITE, playerMoves);
+            if (pCount > 240) pCount = 240;
             bool pHasMoves = false;
             for(int j=0; j<pCount; j++) {
                 int orig = board[playerMoves[j].from];
